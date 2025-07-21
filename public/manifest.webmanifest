@@ -1,0 +1,33 @@
+{
+  "name": "DNS Database / پایگاه داده DNS",
+  "short_name": "DNS DB",
+  "description": "Select a country and add IP or CIDR addresses to manage. Includes backup and restore functionality.",
+  "icons": [
+    {
+      "src": "/pwa-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "scope": "/",
+  "orientation": "portrait",
+  "lang": "en-US",
+  "dir": "ltr"
+}
