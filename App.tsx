@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { IpData, IpInfo, IpStatus, CountryInfo } from './types';
 import { loadData, saveData } from './services/storageService';
 import { parseIpInput } from './utils/ipParser';
@@ -6,8 +7,8 @@ import IpInputForm from './components/IpInputForm';
 import CountryCard from './components/CountryCard';
 import SettingsModal from './components/SettingsModal';
 import { SettingsIcon } from './components/icons/SettingsIcon';
+import { useLanguage } from './hooks/useLanguage';
 
-// This is to satisfy TypeScript for the experimental 'beforeinstallprompt' event
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: Array<string>;
   readonly userChoice: Promise<{
@@ -17,26 +18,28 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
 
-const availableCountries: CountryInfo[] = [
-  { name: 'روسیه', iso: 'RU', emoji: '🇷🇺' },
-  { name: 'آمریکا', iso: 'US', emoji: '🇺🇸' },
-  { name: 'ارمنستان', iso: 'AM', emoji: '🇦🇲' },
-  { name: 'عمان', iso: 'OM', emoji: '🇴🇲' },
-  { name: 'آلمان', iso: 'DE', emoji: '🇩🇪' },
-  { name: 'چین', iso: 'CN', emoji: '🇨🇳' },
-  { name: 'فرانسه', iso: 'FR', emoji: '🇫🇷' },
-  { name: 'آلبانی', iso: 'AL', emoji: '🇦🇱' },
-  { name: 'بلژیک', iso: 'BE', emoji: '🇧🇪' },
-  { name: 'چک', iso: 'CZ', emoji: '🇨🇿' },
+const allCountries: CountryInfo[] = [
+  { name: 'روسیه', name_en: 'Russia', iso: 'RU', emoji: '🇷🇺' },
+  { name: 'آمریکا', name_en: 'USA', iso: 'US', emoji: '🇺🇸' },
+  { name: 'ارمنستان', name_en: 'Armenia', iso: 'AM', emoji: '🇦🇲' },
+  { name: 'امارات متحده عربی', name_en: 'UAE', iso: 'AE', emoji: '🇦🇪' },
+  { name: 'عمان', name_en: 'Oman', iso: 'OM', emoji: '🇴🇲' },
+  { name: 'آلمان', name_en: 'Germany', iso: 'DE', emoji: '🇩🇪' },
+  { name: 'چین', name_en: 'China', iso: 'CN', emoji: '🇨🇳' },
+  { name: 'فرانسه', name_en: 'France', iso: 'FR', emoji: '🇫🇷' },
+  { name: 'آلبانی', name_en: 'Albania', iso: 'AL', emoji: '🇦🇱' },
+  { name: 'بلژیک', name_en: 'Belgium', iso: 'BE', emoji: '🇧🇪' },
+  { name: 'چک', name_en: 'Czech Republic', iso: 'CZ', emoji: '🇨🇿' },
 ];
-
-const countryInfoMap = new Map(availableCountries.map(c => [c.iso, c]));
 
 const App: React.FC = () => {
   const [ipData, setIpData] = useState<IpData>({});
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
+  const { t, lang } = useLanguage();
+
+  const countryInfoMap = useMemo(() => new Map(allCountries.map(c => [c.iso, c])), []);
 
   useEffect(() => {
     const data = loadData();
@@ -54,20 +57,61 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const updateAndSaveData = (newData: IpData) => {
-    const countryNameMap = Object.fromEntries(availableCountries.map(c => [c.iso, c.name]));
-    const sortedCountryKeys = Object.keys(newData).sort((a, b) => countryNameMap[a]?.localeCompare(countryNameMap[b], 'fa') ?? 0);
+  const updateAndSaveData = useCallback((newData: IpData) => {
+    const sortedCountryKeys = Object.keys(newData).sort((a, b) => {
+        const countryA = countryInfoMap.get(a);
+        const countryB = countryInfoMap.get(b);
+        if (!countryA || !countryB) return 0;
+        
+        const nameA = lang === 'fa' ? countryA.name : countryA.name_en;
+        const nameB = lang === 'fa' ? countryB.name : countryB.name_en;
+        
+        return nameA.localeCompare(nameB, lang);
+    });
     
     const sortedData: IpData = {};
     for (const key of sortedCountryKeys) {
       if (newData[key]) {
-        const sortedIps = [...newData[key]].sort((a, b) => a.address.localeCompare(b.address));
+        const sortedIps = [...newData[key]].sort((a, b) => a.address.localeCompare(b.address, undefined, { numeric: true }));
         sortedData[key] = sortedIps;
       }
     }
     setIpData(sortedData);
     saveData(sortedData);
-  }
+  }, [lang, countryInfoMap]);
+
+  useEffect(() => {
+    // Re-sort data when language changes to ensure country list is ordered correctly
+    setIpData(currentData => {
+      if (Object.keys(currentData).length === 0) {
+        return currentData; // No change
+      }
+      const sortedCountryKeys = Object.keys(currentData).sort((a, b) => {
+        const countryA = countryInfoMap.get(a);
+        const countryB = countryInfoMap.get(b);
+        if (!countryA || !countryB) return 0;
+        
+        const nameA = lang === 'fa' ? countryA.name : countryA.name_en;
+        const nameB = lang === 'fa' ? countryB.name : countryB.name_en;
+        
+        return nameA.localeCompare(nameB, lang);
+      });
+
+      const currentKeys = Object.keys(currentData);
+      // Only update state if the order has actually changed to prevent unnecessary re-renders.
+      if (JSON.stringify(sortedCountryKeys) === JSON.stringify(currentKeys)) {
+        return currentData;
+      }
+
+      const sortedData: IpData = {};
+      for (const key of sortedCountryKeys) {
+        sortedData[key] = currentData[key];
+      }
+      saveData(sortedData); // Persist the newly sorted data
+      return sortedData;
+    });
+  }, [lang, countryInfoMap]);
+
 
   const handleAddIps = useCallback(async (rawInput: string, countryIso: string) => {
     const ips = parseIpInput(rawInput);
@@ -96,10 +140,10 @@ const App: React.FC = () => {
     });
 
     setIsLoading(false);
-  }, []);
+  }, [updateAndSaveData]);
 
   const handleDeleteIp = useCallback((countryIso: string, ipToDelete: string) => {
-    if (!window.confirm(`آیا از حذف آدرس ${ipToDelete} اطمینان دارید؟`)) return;
+    if (!window.confirm(t('confirmDeleteIp', { ip: ipToDelete }))) return;
 
     setIpData(prevIpData => {
       const newData = { ...prevIpData };
@@ -110,24 +154,25 @@ const App: React.FC = () => {
       updateAndSaveData(newData);
       return newData;
     });
-  }, []);
+  }, [t, updateAndSaveData]);
 
   const handleToggleIpStatus = useCallback((countryIso: string, ipToToggle: string) => {
     setIpData(prevIpData => {
       const newData = { ...prevIpData };
       const ipIndex = newData[countryIso]?.findIndex(ipInfo => ipInfo.address === ipToToggle);
-      if (ipIndex > -1) {
+      if (ipIndex !== undefined && ipIndex > -1) {
           const currentStatus = newData[countryIso][ipIndex].status;
           newData[countryIso][ipIndex].status = currentStatus === IpStatus.Available ? IpStatus.Sold : IpStatus.Available;
       }
       updateAndSaveData(newData);
       return newData;
     });
-  }, []);
+  }, [updateAndSaveData]);
 
   const handleDeleteSoldIps = useCallback((countryIso: string) => {
-    const countryName = countryInfoMap.get(countryIso)?.name || 'این کشور';
-    if (!window.confirm(`آیا از حذف تمام آدرس‌های فروخته شده در ${countryName} اطمینان دارید؟`)) return;
+    const country = countryInfoMap.get(countryIso);
+    const countryName = country ? (lang === 'fa' ? country.name : country.name_en) : 'this country';
+    if (!window.confirm(t('confirmDeleteSold', { countryName }))) return;
 
     setIpData(prevIpData => {
       const newData = { ...prevIpData };
@@ -138,11 +183,11 @@ const App: React.FC = () => {
       updateAndSaveData(newData);
       return newData;
     });
-  }, []);
+  }, [t, lang, countryInfoMap, updateAndSaveData]);
 
   const handleExportData = () => {
     if (Object.keys(ipData).length === 0) {
-        alert('داده‌ای برای تهیه نسخه پشتیبان وجود ندارد.');
+        alert(t('noDataToExport'));
         return;
     }
     const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
@@ -159,10 +204,10 @@ const App: React.FC = () => {
   const handleImportData = (importedData: IpData) => {
      if (typeof importedData === 'object' && !Array.isArray(importedData) && importedData !== null) {
         updateAndSaveData(importedData);
-        alert('داده‌ها با موفقیت بازیابی شد!');
+        alert(t('importSuccess'));
         setIsSettingsOpen(false);
     } else {
-        throw new Error('فرمت فایل نامعتبر است.');
+        throw new Error(t('invalidFileFormat'));
     }
   }
 
@@ -183,7 +228,7 @@ const App: React.FC = () => {
 
 
   return (
-    <div className="min-h-screen bg-black text-gray-200 font-sans p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-black text-gray-200 p-4 sm:p-6 lg:p-8">
       <div 
         className="absolute top-0 left-0 w-full h-full bg-cover bg-center opacity-10"
         style={{backgroundImage: 'url(https://www.transparenttextures.com/patterns/cubes.png)'}}
@@ -192,18 +237,18 @@ const App: React.FC = () => {
         <header className="text-center mb-8 md:mb-12">
            <div className="flex justify-center items-center gap-4 mb-2">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white">
-              پایگاه داده DNS
+              {t('appTitle')}
             </h1>
             <button
                 onClick={() => setIsSettingsOpen(true)}
                 className="text-gray-400 hover:text-white transition-colors"
-                aria-label="باز کردن تنظیمات"
+                aria-label={t('openSettings')}
             >
                 <SettingsIcon className="w-8 h-8"/>
             </button>
           </div>
           <p className="text-gray-400 text-lg mb-6">
-            کشور را انتخاب کرده و آدرس‌های IP یا CIDR را برای مدیریت اضافه کنید.
+            {t('appDescription')}
           </p>
         </header>
 
@@ -216,31 +261,34 @@ const App: React.FC = () => {
             canInstall={!!installPromptEvent}
         />
 
-        <IpInputForm onAdd={handleAddIps} isLoading={isLoading} countries={availableCountries} />
+        <IpInputForm onAdd={handleAddIps} isLoading={isLoading} countries={allCountries} />
 
         <div className="mt-8 md:mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {Object.keys(ipData).length > 0 ? (
-            Object.entries(ipData).map(([iso, ips]) => (
-              <CountryCard
-                key={iso}
-                country={countryInfoMap.get(iso)!}
-                ips={ips}
-                onDeleteIp={handleDeleteIp}
-                onToggleStatus={handleToggleIpStatus}
-                onDeleteSold={handleDeleteSoldIps}
-              />
-            ))
+            Object.entries(ipData).map(([iso, ips]) => {
+              const country = countryInfoMap.get(iso);
+              return country ? (
+                <CountryCard
+                  key={iso}
+                  country={country}
+                  ips={ips}
+                  onDeleteIp={handleDeleteIp}
+                  onToggleStatus={handleToggleIpStatus}
+                  onDeleteSold={handleDeleteSoldIps}
+                />
+              ) : null;
+            })
           ) : (
             !isLoading && (
               <div className="md:col-span-2 lg:col-span-3 text-center py-16 px-6 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm">
-                <h3 className="text-2xl font-semibold text-white">پایگاه داده شما خالی است</h3>
-                <p className="text-gray-400 mt-2">برای شروع، یک کشور انتخاب کرده و آدرس IP اضافه کنید، یا از طریق منوی تنظیمات، از یک فایل پشتیبان اطلاعات خود را بازیابی نمایید.</p>
+                <h3 className="text-2xl font-semibold text-white">{t('emptyStateTitle')}</h3>
+                <p className="text-gray-400 mt-2">{t('emptyStateDescription')}</p>
               </div>
             )
           )}
         </div>
         <footer className="text-center mt-12 text-gray-500">
-            <p>ساخته شده با ❤️ ۲۰۲۵</p>
+            <p>{t('footerText')}</p>
         </footer>
       </main>
     </div>

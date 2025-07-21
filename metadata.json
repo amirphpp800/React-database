@@ -1,5 +1,7 @@
 {
-  "name": "پایگاه داده DNS",
+  "name": "DNS Database / پایگاه داده DNS",
   "description": "کشور را انتخاب کرده و آدرس‌های IP یا CIDR را برای مدیریت اضافه کنید. با قابلیت پشتیبان‌گیری و بازیابی.",
-  "requestFramePermissions": []
+  "description_en": "Select a country and add IP or CIDR addresses to manage. With backup and restore functionality.",
+  "requestFramePermissions": [],
+  "prompt": ""
 }

@@ -3,6 +3,8 @@ import { IpData } from '../types';
 import { ExportIcon } from './icons/ExportIcon';
 import { ImportIcon } from './icons/ImportIcon';
 import { InstallIcon } from './icons/InstallIcon';
+import { useLanguage } from '../hooks/useLanguage';
+import LanguageSwitcher from './LanguageSwitcher';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -15,6 +17,7 @@ interface SettingsModalProps {
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onExport, onImport, onInstall, canInstall }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { t } = useLanguage();
 
     const handleImportClick = () => {
         fileInputRef.current?.click();
@@ -33,7 +36,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onExport
                     onImport(importedData);
                 } catch (error) {
                     console.error("Failed to parse JSON", error);
-                    alert('خطا در بازیابی اطلاعات. لطفاً از معتبر بودن فایل پشتیبان اطمینان حاصل کنید.');
+                    alert(t('importError'));
                 }
             }
         };
@@ -53,31 +56,33 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onExport
                 onClick={e => e.stopPropagation()}
             >
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-white">تنظیمات پایگاه داده</h2>
+                    <h2 className="text-2xl font-bold text-white">{t('settingsTitle')}</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
                 </div>
                 <div className="space-y-4">
+                     <LanguageSwitcher />
+
                      <button
                         onClick={onExport}
                         className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-green-500/20 text-green-300 border border-green-500/30 rounded-lg font-semibold hover:bg-green-500/40 transition-colors"
                     >
                         <ExportIcon className="w-6 h-6" />
-                        <span>تهیه نسخه پشتیبان (JSON)</span>
+                        <span>{t('exportJson')}</span>
                     </button>
                     <button
                         onClick={handleImportClick}
                         className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-lg font-semibold hover:bg-sky-500/40 transition-colors"
                     >
                         <ImportIcon className="w-6 h-6" />
-                        <span>بازیابی اطلاعات از فایل</span>
+                        <span>{t('importFile')}</span>
                     </button>
                     {canInstall && (
                          <button
                             onClick={onInstall}
-                            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-lg font-semibold hover:bg-indigo-500/40 transition-colors"
+                            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors"
                         >
                             <InstallIcon className="w-6 h-6" />
-                            <span>نصب وب اپلیکیشن</span>
+                            <span>{t('installApp')}</span>
                         </button>
                     )}
                     <input
@@ -89,7 +94,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onExport
                     />
                 </div>
                 <p className="text-xs text-gray-500 mt-6 text-center">
-                    می‌توانید از اطلاعات خود یک فایل پشتیبان تهیه کنید یا اطلاعات قبلی را از یک فایل بازیابی نمایید.
+                    {t('settingsDescription')}
                 </p>
             </div>
              <style>{`

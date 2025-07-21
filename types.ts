@@ -14,6 +14,7 @@ export interface IpData {
 
 export interface CountryInfo {
     name: string;
+    name_en: string;
     iso: string;
     emoji: string;
 }
